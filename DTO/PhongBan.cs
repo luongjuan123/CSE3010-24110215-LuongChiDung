@@ -17,5 +17,10 @@ namespace DTO
 
         // Navigation property: Một phòng ban có nhiều nhân viên
         public virtual ICollection<NhanVien> NhanViens { get; set; } = new HashSet<NhanVien>();
+
+        public override string ToString()
+        {
+            return TenPB ?? "";
+        }
     }
 }

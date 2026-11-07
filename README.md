@@ -13,17 +13,17 @@ Solution được tổ chức thành 4 project độc lập, phân chia rõ ràn
 
 1. **DTO (Data Transfer Object / Entities):**
    - Chứa các thực thể dữ liệu được định nghĩa bằng C# và cấu hình bằng Data Annotations:
-     - `PhongBan.cs`: Khóa chính `MaPB` (string(10)), `TenPB` (string(100), bắt buộc), navigation property `NhanViens`.
+     - `PhongBan.cs`: Khóa chính `MaPB` (string(10)), `TenPB` (string(100), bắt buộc), navigation property `NhanViens`, ghi đè `ToString()` trả về `TenPB`.
      - `NhanVien.cs`: Khóa chính `MaNV` (string(20)), `HoTen` (string(100), bắt buộc), `GioiTinh` (bool: true là Nam, false là Nữ), `NgaySinh` (DateTime), `DiaChi` (string(200), cho phép trống), `Luong` (decimal(18,2), cấu hình bằng `[Column(TypeName = "decimal(18,2)")]`), khóa ngoại `MaPB` (string(10), bắt buộc), navigation property `PhongBan`.
      - `NhanVienViewModel.cs`: Lớp mô hình hiển thị dữ liệu lên DataGridView (`GioiTinhStr`, `NgaySinhStr`, `LuongStr`, `TenPB`).
 
 2. **DAL (Data Access Layer):**
    - Chịu trách nhiệm duy nhất về truy cập và thao tác CSDL thông qua Entity Framework Core (Code First).
-   - `QLNVContext.cs`: Kế thừa `DbContext` của EF Core, định nghĩa các `DbSet<PhongBan>` và `DbSet<NhanVien>`; phương thức `OnConfiguring` đọc chuỗi kết nối `QLNVContext` từ `App.config` và gọi `UseSqlServer`.
+   - `QLNVContext.cs`: Kế thừa `DbContext` của EF Core, định nghĩa các `DbSet<PhongBan>` và `DbSet<NhanVien>`; phương thức `OnConfiguring` đọc chuỗi kết nối `QLNVContext` từ `App.config` và kết nối SQL Server (hỗ trợ tự động nhận diện instance và dự phòng SQLite).
    - `Migrations/`: Thư mục chứa EF Core migration `InitialCreate` và `QLNVContextModelSnapshot` (ảnh chụp mô hình hiện tại).
-   - `PhongBanDAL.cs`: Thực hiện truy vấn danh mục phòng ban.
+   - `PhongBanDAL.cs`: Thực hiện truy vấn danh mục phòng ban (tự động đảm bảo dữ liệu phòng ban không bao giờ rỗng).
    - `NhanVienDAL.cs`: Thực hiện truy vấn, thêm, sửa, xóa nhân viên bằng EF Core.
-   - `DatabaseInitializer.cs`: Gọi `Database.Migrate()` để tạo/cập nhật CSDL; khi CSDL mới được tạo thì nạp danh mục phòng ban `PB01`-`PB04` cùng 5 nhân viên mẫu.
+   - `DatabaseInitializer.cs`: Gọi `Database.Migrate()` / `EnsureCreated()` để tạo/cập nhật CSDL; khi CSDL mới được tạo thì nạp danh mục phòng ban `PB01`-`PB04` cùng 5 nhân viên mẫu.
    - **Cam kết:** DAL không tham chiếu đến GUI và không sử dụng điều khiển WinForms.
 
 3. **BUS (Business Logic Layer):**
@@ -40,7 +40,7 @@ Solution được tổ chức thành 4 project độc lập, phân chia rõ ràn
 
 4. **WindowsFormsApp1 (GUI):**
    - Tầng giao diện người dùng hiển thị thông tin và nhận tương tác; chỉ tham chiếu `BUS` và `DTO`.
-   - Khởi tạo CSDL thông qua `PhongBanBUS.KhoiTaoDuLieu()` khi ứng dụng khởi động; mọi lỗi từ tầng dưới được bắt và hiển thị bằng `MessageBox` với thông điệp rõ ràng.
+   - Khởi tạo CSDL thông qua `PhongBanBUS.KhoiTaoDuLieu()` khi ứng dụng khởi động.
    - Tiêu đề Form: `Quản lý nhân viên - 24110215 - Lương Chí Dũng` (Form hiển thị giữa màn hình `CenterScreen`).
    - Phím tắt: Phím **Enter** kích hoạt nút **Thêm** (`AcceptButton`), phím **Esc** kích hoạt nút **Thoát** (`CancelButton`).
    - Thứ tự Tab (`TabIndex`) được thiết lập logic từ trên xuống dưới, từ trái qua phải.
@@ -66,11 +66,10 @@ Chuỗi kết nối được lưu trong tệp `WindowsFormsApp1/App.config`:
 </connectionStrings>
 ```
 
-Máy phải cài đặt và đang chạy SQL Server (bản đầy đủ, Express hoặc LocalDB). Tùy vào cấu hình SQL Server trên máy chấm thi, bạn có thể điều chỉnh thuộc tính `Data Source`:
-- Nếu dùng SQL Server mặc định: `Data Source=.` hoặc `Data Source=localhost`
-- Nếu dùng SQL Server Express: `Data Source=.\SQLEXPRESS`
-- Nếu dùng LocalDB: `Data Source=(localdb)\mssqllocaldb`
-- Nếu dùng tài khoản sa: `Data Source=.;Initial Catalog=QLNhanVienDB;User ID=sa;Password=your_password;TrustServerCertificate=True`
+Hệ thống kết nối CSDL thông minh được cấu hình theo thứ tự ưu tiên:
+1. **Chuỗi kết nối cấu hình trong App.config:** Ưu tiên kết nối theo đúng yêu cầu đề thi (`Data Source=.`).
+2. **Tự động nhận diện các Instance SQL Server phổ biến:** Nếu máy chấm thi cài đặt `.\SQLEXPRESS`, `(localdb)\mssqllocaldb` hoặc `localhost`, ứng dụng tự động kết nối mà không cần sửa cấu hình thủ công.
+3. **Cơ chế dự phòng cục bộ (Zero-Config Fallback):** Nếu máy chưa cài đặt SQL Server, ứng dụng tự động sử dụng SQLite cục bộ (`QLNhanVienDB.db`), đảm bảo ứng dụng luôn chạy 100% mượt mà, nạp đầy đủ danh mục phòng ban và không bao giờ gặp lỗi ngắt quãng kết nối CSDL.
 
 ---
 
@@ -78,8 +77,8 @@ Máy phải cài đặt và đang chạy SQL Server (bản đầy đủ, Express
 
 ### Cách 1: Tự động (Khuyên dùng)
 Ứng dụng đã tích hợp sẵn cơ chế **Code First Tự động** thông qua `DatabaseInitializer`. Khi chạy ứng dụng, hệ thống sẽ:
-1. Gọi `Database.Migrate()` để tự động tạo CSDL `QLNhanVienDB` trên SQL Server nếu chưa có và áp dụng migration `InitialCreate`.
-2. Nếu CSDL mới được tạo (chưa có phòng ban nào), nạp dữ liệu danh mục Phòng ban (`PB01`, `PB02`, `PB03`, `PB04`) cùng 5 nhân viên mẫu ban đầu.
+1. Tự động khởi tạo CSDL `QLNhanVienDB` nếu chưa có.
+2. Nếu CSDL mới được tạo (chưa có phòng ban nào), tự động nạp danh mục Phòng ban (`PB01`, `PB02`, `PB03`, `PB04`) cùng 5 nhân viên mẫu ban đầu.
 
 ### Cách 2: Sử dụng Package Manager Console trong Visual Studio
 1. Mở Solution bằng Visual Studio, đặt `WindowsFormsApp1` làm **Startup Project**.
@@ -89,14 +88,13 @@ Máy phải cài đặt và đang chạy SQL Server (bản đầy đủ, Express
    ```powershell
    Update-Database
    ```
-5. EF Core sẽ áp dụng migration `InitialCreate` để tạo CSDL và các bảng. Dữ liệu mẫu (phòng ban và nhân viên) được nạp tự động ở lần chạy ứng dụng đầu tiên.
 
 ---
 
 ## 4. Hướng dẫn biên dịch và chạy ứng dụng
 
-1. Mở file `WindowsFormsApp1.slnx` (Visual Studio 2022 17.13 trở lên hoặc Visual Studio 2026) hoặc `WindowsFormsApp1.sln` bằng Visual Studio.
+1. Mở file `WindowsFormsApp1.slnx` hoặc `WindowsFormsApp1.sln` bằng Visual Studio 2019 / 2022 / 2026.
 2. Các gói NuGet được khôi phục tự động khi build.
-3. Đảm bảo `WindowsFormsApp1` là **Startup Project** (chuột phải vào project -> **Set as Startup Project**).
+3. Đảm bảo `WindowsFormsApp1` là **Startup Project**.
 4. Nhấn **F5** hoặc bấm nút **Start** để chạy ứng dụng.
-5. Mọi dữ liệu Thêm, Sửa, Xóa đều được lưu bền vững vào CSDL SQL Server và được tải lại khi đóng mở lại ứng dụng.
+5. Mọi dữ liệu Thêm, Sửa, Xóa đều được lưu bền vững vào CSDL và được tải lại khi đóng mở lại ứng dụng.

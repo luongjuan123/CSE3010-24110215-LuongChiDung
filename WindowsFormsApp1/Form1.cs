@@ -66,12 +66,14 @@ namespace WindowsFormsApp1
 
         /// <summary>
         /// Nạp danh sách phòng ban vào cboPhongBan theo yêu cầu Câu 4a
+        /// Thiết lập DisplayMember và ValueMember trước DataSource để đảm bảo ComboBox hiển thị chính xác
         /// </summary>
         private void LoadDanhSachPhongBan()
         {
-            cboPhongBan.DataSource = _phongBanBUS.GetAll();
+            var danhSach = _phongBanBUS.GetAll();
             cboPhongBan.DisplayMember = "TenPB";
             cboPhongBan.ValueMember = "MaPB";
+            cboPhongBan.DataSource = danhSach;
             cboPhongBan.SelectedIndex = -1;
         }
 
@@ -94,7 +96,7 @@ namespace WindowsFormsApp1
         /// - Bỏ chọn dòng hiện tại
         /// - Đưa con trỏ về txtMaNV
         /// - Bật nút Thêm, tắt Sửa và Xóa
-        /// - ComboBox ở trạng thái chưa chọn
+        /// - ComboBox ở trạng thái chưa chọn (SelectedIndex = -1)
         /// </summary>
         private void ResetInputForm()
         {
@@ -169,7 +171,26 @@ namespace WindowsFormsApp1
                 txtLuong.Text = vm.Luong.ToString("0.##");
 
                 // Chọn ComboBox theo khóa ngoại MaPB
-                cboPhongBan.SelectedValue = vm.MaPB;
+                if (!string.IsNullOrEmpty(vm.MaPB))
+                {
+                    cboPhongBan.SelectedValue = vm.MaPB;
+                    if (cboPhongBan.SelectedIndex == -1)
+                    {
+                        for (int i = 0; i < cboPhongBan.Items.Count; i++)
+                        {
+                            var pb = cboPhongBan.Items[i] as PhongBan;
+                            if (pb != null && (pb.MaPB == vm.MaPB || pb.TenPB == vm.TenPB))
+                            {
+                                cboPhongBan.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    cboPhongBan.SelectedIndex = -1;
+                }
 
                 // Cập nhật trạng thái điều khiển
                 txtMaNV.ReadOnly = true; // Không cho sửa mã
@@ -217,7 +238,15 @@ namespace WindowsFormsApp1
                     return;
                 }
 
-                string maPB = cboPhongBan.SelectedValue != null ? cboPhongBan.SelectedValue.ToString() : null;
+                string maPB = null;
+                if (cboPhongBan.SelectedItem is PhongBan pb)
+                {
+                    maPB = pb.MaPB;
+                }
+                else if (cboPhongBan.SelectedValue != null)
+                {
+                    maPB = cboPhongBan.SelectedValue.ToString();
+                }
 
                 var nhanVien = new NhanVien
                 {
@@ -272,7 +301,15 @@ namespace WindowsFormsApp1
                     return;
                 }
 
-                string maPB = cboPhongBan.SelectedValue != null ? cboPhongBan.SelectedValue.ToString() : null;
+                string maPB = null;
+                if (cboPhongBan.SelectedItem is PhongBan pb)
+                {
+                    maPB = pb.MaPB;
+                }
+                else if (cboPhongBan.SelectedValue != null)
+                {
+                    maPB = cboPhongBan.SelectedValue.ToString();
+                }
 
                 var nhanVien = new NhanVien
                 {

@@ -11,7 +11,14 @@ namespace DAL
         {
             using (var db = new QLNVContext())
             {
-                return db.PhongBans.AsNoTracking().ToList();
+                var list = db.PhongBans.AsNoTracking().ToList();
+                if (list.Count == 0)
+                {
+                    // Tự động khởi tạo dữ liệu mẫu nếu danh mục phòng ban chưa có
+                    DatabaseInitializer.Initialize();
+                    list = db.PhongBans.AsNoTracking().ToList();
+                }
+                return list;
             }
         }
 
